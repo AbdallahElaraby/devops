@@ -1,0 +1,103 @@
+# docker-compose.yml
+version: '3.9'
+
+networks:
+  frontend:
+  backend:
+
+services:
+  # -------- Frontend tier --------
+  vote:
+    build: ./vote
+    container_name: vote
+    networks:
+      - frontend
+      - backend
+    healthcheck:
+      test: ["CMD","python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    ports:
+      - "8080:80"
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  result:
+    build: ./result
+    container_name: result
+    networks:
+      - frontend
+      - backend
+    ports:
+      - "8081:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+      worker:
+        condition: service_started
+
+  # -------- Backend tier --------
+  worker:
+    build: ./worker
+    container_name: worker
+    networks:
+      - backend
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "sh", "/healthchecks/redis.sh"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+      start_period: 20s
+    volumes:
+      - ./healthchecks:/healthchecks
+
+
+  db:
+    image: postgres:15
+    container_name: db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: votes
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "bash", "/healthchecks/postgres.sh"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+      start_period: 40s
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./healthchecks:/healthchecks
+
+  # -------- Seed Data --------
+  seed:
+    build: ./seed-data
+    container_name: seed-demo
+    networks:
+      - frontend
+    depends_on:
+      vote:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  db-data:
+
