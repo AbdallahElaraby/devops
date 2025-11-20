@@ -7,7 +7,8 @@ COPY ./ ./
 FROM node:18-alpine
 WORKDIR /app
 COPY --from=builder /app ./
-ENV NODE_ENV=production
+RUN chown -R node:node /app
+USER node
 EXPOSE 4000
 CMD ["npm", "start"]
 
