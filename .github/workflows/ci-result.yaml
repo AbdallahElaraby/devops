@@ -1,0 +1,31 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+        - main
+env:
+  CONTAINER_REGISTRY: ${{ vars.CONTAINER_REGISTRY }}
+  IMAGE_NAME: devops-result
+  DOCKER_USERNAME: ${{ vars.DOCKER_USERNAME }}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Docker Login
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login $CONTAINER_REGISTRY -u "$DOCKER_USERNAME" --password-stdin
+
+      - name: Docker Build
+        run: |
+          docker build -t $CONTAINER_REGISTRY/$DOCKER_USERNAME/$IMAGE_NAME:latest \
+                       -t $CONTAINER_REGISTRY/$DOCKER_USERNAME/$IMAGE_NAME:${{ github.sha }} ./result
+
+      - name: Docker Push
+        run: |
+          docker push $CONTAINER_REGISTRY/$DOCKER_USERNAME/$IMAGE_NAME:latest
+          docker push $CONTAINER_REGISTRY/$DOCKER_USERNAME/$IMAGE_NAME:${{ github.sha }}
